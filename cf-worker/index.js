@@ -155,9 +155,6 @@ function checkRateLimitFn(ip) {
   return data.count <= limit;
 }
 
-const SOKUJA_BASE = 'https://x6.sokuja.uk';
-const VALID_API_KEY = 'e1d31716fcc84a54bb39da93c0bb4db911a9126459af4dd3922895e888f5ec78';
-
 export default {
   async fetch(req, env, ctx) {
     if (req.method === 'OPTIONS') {
