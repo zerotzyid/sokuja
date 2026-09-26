@@ -1,3 +1,5 @@
+import { getHomeHtml } from '@/lib/sokuja/client';
+
 const WORKER_URL = process.env.SCRAPER_WORKER_URL || 'https://otakuproxy.azizkalimorgo.workers.dev';
 const API_KEY = process.env.PROXY_API_KEY || 'e1d31716fcc84a54bb39da93c0bb4db911a9126459af4dd3922895e888f5ec78';
 

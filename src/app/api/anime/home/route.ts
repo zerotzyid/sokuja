@@ -1,8 +1,18 @@
-import { getHome } from '@/lib/worker';
+import { getHomeHtml } from '@/lib/sokuja/client';
+import { parseHome } from '@/lib/sokuja/parser';
+import { getCache, setCache } from '@/lib/sokuja/cache';
 
-export async function GET(request: Request) {
-  const { searchParams } = new URL(request.url);
-  const page = parseInt(searchParams.get('page') || '1');
-  const data = await getHome(page);
-  return Response.json(data);
+export async function GET() {
+  const cacheKey = 'home';
+  const cached = getCache('https://x6.sokuja.uk/', 'home');
+  if (cached) return Response.json(cached);
+
+  try {
+    const html = await getHomeHtml();
+    const data = parseHome(html);
+    setCache('https://x6.sokuja.uk/', data);
+    return Response.json(data);
+  } catch (e: any) {
+    return Response.json({ status: 'error', message: e.message }, { status: 500 });
+  }
 }

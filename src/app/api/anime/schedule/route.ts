@@ -1,6 +1,12 @@
-import { getSchedule } from '@/lib/worker';
+import { getScheduleHtml } from '@/lib/sokuja/client';
+import { parseSchedule } from '@/lib/sokuja/parser';
 
 export async function GET() {
-  const data = await getSchedule();
-  return Response.json(data);
+  try {
+    const html = await getScheduleHtml();
+    const data = parseSchedule(html);
+    return Response.json(data);
+  } catch (e: any) {
+    return Response.json({ status: 'error', message: e.message }, { status: 500 });
+  }
 }
