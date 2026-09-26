@@ -114,7 +114,110 @@ function parseAnimeList(html) {
   return items;
 }
 
-function parseDetail(html) {
+const ANILIST_API = 'https://graphql.anilist.co';
+
+async function fetchAniList(title) {
+  const query = `
+    query ($search: String) {
+      Media (search: $search, type: ANIME) {
+        id
+        title {
+          romaji
+          english
+          native
+        }
+        description
+        genres
+        averageScore
+        meanScore
+        popularity
+        episodes
+        duration
+        status
+        season
+        seasonYear
+        coverImage {
+          large
+          medium
+        }
+        bannerImage
+        studios {
+          nodes {
+            name
+          }
+        }
+        staff {
+          nodes {
+            name {
+              full
+            }
+            role
+          }
+        }
+        characters {
+          nodes {
+            name {
+              full
+            }
+            role
+            image {
+              large
+            }
+          }
+        }
+        relations {
+          edges {
+            relationType
+            node {
+              id
+              title {
+                romaji
+              }
+              type
+            }
+          }
+        }
+        externalLinks {
+          site
+          url
+        }
+      }
+    }
+  `;
+  
+  try {
+    const res = await fetch(ANILIST_API, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Accept': 'application/json'
+      },
+      body: JSON.stringify({ query, variables: { search: title } })
+    });
+    
+    if (!res.ok) return null;
+    const data = await res.json();
+    return data.data?.Media || null;
+  } catch (e) {
+    console.error('AniList error:', e);
+    return null;
+  }
+}
+
+function cleanHtml(text) {
+  if (!text) return '';
+  return text
+    .replace(/<br\s*\/?>/gi, '\n')
+    .replace(/<[^>]+>/g, '')
+    .replace(/&nbsp;/g, ' ')
+    .replace(/&/g, '&')
+    .replace(/</g, '<')
+    .replace(/>/g, '>')
+    .replace(/"/g, '"')
+    .trim();
+}
+
+async function parseDetail(html, env) {
   const jsonLd = extractJsonLd(html);
   const nextData = extractNextData(html);
   
@@ -158,7 +261,81 @@ function parseDetail(html) {
     }
   }
 
-  return { title, poster: poster.startsWith('http') ? poster : (poster ? new URL(poster, SOKUJA_BASE).href : ''), synopsis, genres, episodes };
+  // Fetch AniList data for enrichment
+  let anilistData = null;
+  if (title) {
+    anilistData = await fetchAniList(title);
+  }
+
+  // Merge AniList data
+  let mergedTitle = title;
+  let mergedSynopsis = synopsis;
+  let mergedGenres = genres;
+  let mergedPoster = poster;
+  let anilistId = null;
+  let anilistScore = null;
+  let anilistStatus = null;
+  let anilistEpisodes = null;
+  let anilistCover = null;
+  let anilistBanner = null;
+  let studios = [];
+  let staff = [];
+  let characters = [];
+  let relations = [];
+  let externalLinks = [];
+
+  if (anilistData) {
+    anilistId = anilistData.id;
+    anilistScore = anilistData.averageScore;
+    anilistStatus = anilistData.status;
+    anilistEpisodes = anilistData.episodes;
+    mergedTitle = anilistData.title?.native || anilistData.title?.romaji || title;
+    mergedSynopsis = cleanHtml(anilistData.description) || synopsis;
+    mergedGenres = anilistData.genres?.length ? anilistData.genres : genres;
+    mergedPoster = anilistData.coverImage?.large || poster;
+    anilistCover = anilistData.coverImage?.large;
+    anilistBanner = anilistData.bannerImage;
+    studios = anilistData.studios?.nodes?.map(s => s.name) || [];
+    staff = anilistData.staff?.nodes?.map(s => ({
+      name: s.name?.full,
+      role: s.role
+    })).filter(s => s.name) || [];
+    characters = anilistData.characters?.nodes?.map(c => ({
+      name: c.name?.full,
+      role: c.role,
+      image: c.image?.large
+    })).filter(c => c.name) || [];
+    relations = anilistData.relations?.edges?.map(e => ({
+      type: e.relationType,
+      title: e.node?.title?.romaji,
+      animeType: e.node?.type
+    })) || [];
+    externalLinks = anilistData.externalLinks || [];
+  }
+
+  return { 
+    title: mergedTitle,
+    titleRomaji: anilistData?.title?.romaji,
+    titleEnglish: anilistData?.title?.english,
+    titleNative: anilistData?.title?.native,
+    poster: mergedPoster.startsWith('http') ? mergedPoster : (mergedPoster ? new URL(mergedPoster, SOKUJA_BASE).href : ''),
+    synopsis: mergedSynopsis,
+    genres: mergedGenres,
+    episodes,
+    anilist: anilistId ? {
+      id: anilistId,
+      score: anilistScore,
+      status: anilistStatus,
+      totalEpisodes: anilistEpisodes,
+      coverImage: anilistCover,
+      bannerImage: anilistBanner,
+      studios,
+      staff,
+      characters,
+      relations,
+      externalLinks
+    } : null
+  };
 }
 
 async function parseEpisode(html, env) {
