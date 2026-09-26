@@ -145,7 +145,7 @@ function parseDetail(html) {
     if (desc) synopsis = desc[1];
   }
 
-  // Episodes from Next.js data
+  // Episodes from Next.js data (primary)
   for (const data of nextData) {
     if (data && data.episodes && Array.isArray(data.episodes)) {
       episodes = data.episodes.map(ep => ({
@@ -156,6 +156,26 @@ function parseDetail(html) {
       }));
       break;
     }
+  }
+
+  // Fallback: scrape episode list from HTML (EpisodeList component)
+  if (episodes.length === 0) {
+    const epRegex = /"slug":"([^"]+-episode-\d+[^"]*)","title":"([^"]+)","episodeNumber":(\d+)/g;
+    let match;
+    while ((match = epRegex.exec(html)) !== null) {
+      episodes.push({
+        title: match[2] || `Episode ${match[3]}`,
+        episodeId: match[1],
+        href: `/anime/episode/${match[1]}`,
+        sourceUrl: new URL(match[1], SOKUJA_BASE).href
+      });
+    }
+    // Sort by episode number
+    episodes.sort((a, b) => {
+      const an = parseInt(a.episodeId.match(/episode-(\d+)/)?.[1] || '0');
+      const bn = parseInt(b.episodeId.match(/episode-(\d+)/)?.[1] || '0');
+      return an - bn;
+    });
   }
 
   return { title, poster: poster.startsWith('http') ? poster : (poster ? new URL(poster, SOKUJA_BASE).href : ''), synopsis, genres, episodes };
