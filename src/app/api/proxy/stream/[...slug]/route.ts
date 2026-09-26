@@ -1,5 +1,7 @@
 import { getProxyUrl } from '@/lib/worker';
 
+const WORKER_API_KEY = process.env.PROXY_API_KEY || 'e1d31716fcc84a54bb39da93c0bb4db911a9126459af4dd3922895e888f5ec78';
+
 export async function GET(request: Request, { params }: { params: { slug: string[] } }) {
   const targetUrl = decodeURIComponent(params.slug.join('/'));
   const proxyUrl = getProxyUrl(targetUrl);
@@ -8,6 +10,7 @@ export async function GET(request: Request, { params }: { params: { slug: string
   const ifRange = request.headers.get('If-Range');
   
   const headers: HeadersInit = {
+    'X-API-Key': WORKER_API_KEY,
     'Accept': '*/*',
     'Referer': 'https://x6.sokuja.uk/',
     ...(range && { Range: range }),
