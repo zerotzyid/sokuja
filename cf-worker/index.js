@@ -1,7 +1,7 @@
 const SOKUJA_BASE = 'https://x6.sokuja.uk';
 const VALID_API_KEY = 'e1d31716fcc84a54bb39da93c0bb4db911a9126459af4dd3922895e888f5ec78';
 const CACHE_TTL = { list: 300, detail: 1800, episode: 600, schedule: 3600 };
-const WORKER_VERSION = '2024-09-26-v2';
+const WORKER_VERSION = '2024-09-26-v3';
 
 const BROWSER_HEADERS = {
   'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36',
