@@ -5,8 +5,8 @@
     }
   },
   "crons": [
-    { "path": "/api/cron/warm-cache", "schedule": "*/4 * * * *" },
-    { "path": "/api/cron/proxy-health", "schedule": "*/2 * * * *" }
+    { "path": "/api/cron/warm-cache", "schedule": "0 0 * * *" },
+    { "path": "/api/cron/proxy-health", "schedule": "0 0 * * *" }
   ],
   "headers": [
     {
