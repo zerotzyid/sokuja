@@ -63,7 +63,8 @@ async function handleProxyHtml(req, targetUrl) {
       ...BROWSER_HEADERS,
       'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
     };
-    const res = await fetch(`${SOKUJA_BASE}${targetUrl}`, { headers, redirect: 'follow' });
+    const full = targetUrl.startsWith('/') ? `${SOKUJA_BASE}${targetUrl}` : `${SOKUJA_BASE}/${targetUrl}`;
+    const res = await fetch(full, { headers, redirect: 'follow' });
     if (!res.ok) return error(`Upstream error: ${res.status}`, res.status);
     
     const html = await res.text();
@@ -125,9 +126,10 @@ async function handleProxyApi(req, targetUrl) {
       'Referer': SOKUJA_BASE + '/',
       'X-Requested-With': 'XMLHttpRequest',
     };
-    const res = await fetch(`${SOKUJA_BASE}${targetUrl}`, { headers, redirect: 'follow' });
+    const full = targetUrl.startsWith('/') ? `${SOKUJA_BASE}${targetUrl}` : `${SOKUJA_BASE}/${targetUrl}`;
+    const res = await fetch(full, { headers, redirect: 'follow' });
     if (!res.ok) return error(`Upstream API error: ${res.status}`, res.status);
-    
+
     const data = await res.json();
     return json(data);
   } catch (e) {
