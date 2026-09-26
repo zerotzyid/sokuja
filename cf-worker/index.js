@@ -160,10 +160,10 @@ function parseDetail(html) {
 
   // Fallback: scrape episode list from HTML (EpisodeList component)
   if (episodes.length === 0) {
-    // Pattern 1: Next.js data format in __next_f.push - exact format from detail page
-    const epRegex = /"episodes":\s*(\[[\s\S]*?\])/g;
+    // Pattern 1: Find episodes array in Next.js data - "episodes":[{"id":...}]
+    const epArrayRegex = /"episodes"\s*:\s*(\[[\s\S]*?\])/g;
     let match;
-    while ((match = epRegex.exec(html)) !== null) {
+    while ((match = epArrayRegex.exec(html)) !== null) {
       try {
         const eps = JSON.parse(match[1]);
         if (Array.isArray(eps)) {
@@ -181,7 +181,7 @@ function parseDetail(html) {
       } catch (e) {}
     }
 
-    // Pattern 2: Individual episode objects in Next.js data
+    // Pattern 2: Individual episode objects in Next.js data - "id":123,"slug":"...","title":"...","episodeNumber":24
     if (episodes.length === 0) {
       const epRegex2 = /"id":(\d+),"slug":"([^"]+)","title":"([^"]+)","episodeNumber":(\d+)/g;
       let match2;
