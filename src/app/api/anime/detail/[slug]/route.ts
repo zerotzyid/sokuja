@@ -37,7 +37,7 @@ async function fetchAniList(search: string) {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
       body: JSON.stringify({ query, variables: { search } }),
-      next: { revalidate: 3600 }
+      cache: 'no-store'
     });
     if (!res.ok) return null;
     const data = await res.json();
@@ -69,7 +69,7 @@ export async function GET(_: Request, { params }: { params: { slug: string } }) 
     const { parseAnimeDetail } = await import('@/lib/sokuja/parser');
     
     const html = await getDetailHtml(slug);
-    const sokujaData = parseAnimeDetail(html, slug);
+    const sokujaData: any = parseAnimeDetail(html, slug);
     
     // Fetch AniList data
     const searchTitle = sokujaData.data?.title || slug;

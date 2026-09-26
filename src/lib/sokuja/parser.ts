@@ -191,12 +191,7 @@ export function parseEpisodeDetail(html: string, slug: string) {
   const epIdMatch = html.match(/episodeId[^\d]{1,10}(\d+)/i);
   const episodeId = epIdMatch ? parseInt(epIdMatch[1], 10) : null;
 
-  let mirrors: any[] = [];
-  const sources: any[] = [];
-
-  // Will be populated from API separately
-  const epIdMatch = html.match(/episodeId[^\d]{1,10}(\d+)/i);
-  const episodeId2 = epIdMatch ? parseInt(epIdMatch[1], 10) : null;
+  // Will be populated from API separately (Vercel episode route fetches mirrors via worker proxy/api)
 
   // Fallback scrape from HTML
   const scraped = scrapeStreamsFromHtml(html);
@@ -231,7 +226,7 @@ export function parseEpisodeDetail(html: string, slug: string) {
     data: {
       title,
       slug: slug.replace(/^\/|\/$/g, ''),
-      episodeId: episodeId2,
+      episodeId: episodeId,
       anime: { title: animeTitle, slug: animeSlug, url: animeSlug ? `https://x6.sokuja.uk/anime/${animeSlug}/` : null },
       thumbnail: cleanImageUrl(thumbnail),
       uploadDate,

@@ -1,6 +1,7 @@
-const IS_VERCEL = !!process.env.VERCEL;
-const CACHE_DIR = IS_VERCEL ? '/tmp/.cache' : './.cache';
-const CACHE_TTL = {
+import fs from 'node:fs';
+import path from 'node:path';
+
+const CACHE_TTL: Record<string, number> = {
   home: 300000,
   list: 300000,
   detail: 600000,
@@ -9,38 +10,36 @@ const CACHE_TTL = {
   genres: 86400000,
 };
 
-function getCacheKey(url: string): string {
-  return Buffer.from(url).toString('base64').replace(/[^a-zA-Z0-9]/g, '_');
-}
-
 function getCacheDir(): string {
-  if (typeof process !== 'undefined' && process.env.VERCEL) {
-    return '/tmp/.cache';
-  }
-  return './.cache';
+  return process.env.VERCEL ? '/tmp/.cache' : path.join(process.cwd(), '.cache');
 }
 
 function ensureCacheDir() {
-  const fs = require('fs');
   const dir = getCacheDir();
   try {
     if (!fs.existsSync(dir)) {
       fs.mkdirSync(dir, { recursive: true });
     }
-  } catch (_) {}
+  } catch (_) {
+    // ignore (read-only fs)
+  }
 }
 
 function getCacheKeyFromUrl(url: string): string {
   return Buffer.from(url).toString('base64').replace(/[^a-zA-Z0-9]/g, '_');
 }
 
-export function getCache(url: string, type: keyof typeof CACHE_TTL = 'list'): any | null {
+function ttlForUrl(url: string): number {
+  if (url.includes('schedule')) return CACHE_TTL.schedule;
+  if (url.includes('genre')) return CACHE_TTL.genres;
+  return CACHE_TTL.list;
+}
+
+export function getCache(url: string, _type?: string): any | null {
   ensureCacheDir();
-  const fs = require('fs');
-  const key = getCacheKeyFromUrl(url);
-  const filePath = `${getCacheDir()}/${key}.json`;
-  const ttl = CACHE_TTL[Object.keys(CACHE_TTL).find(k => url.includes(k)) || 'list'] || 300000;
-  
+  const filePath = path.join(getCacheDir(), `${getCacheKeyFromUrl(url)}.json`);
+  const ttl = ttlForUrl(url);
+
   try {
     if (fs.existsSync(filePath)) {
       const stat = fs.statSync(filePath);
@@ -54,10 +53,8 @@ export function getCache(url: string, type: keyof typeof CACHE_TTL = 'list'): an
 
 export function getCacheStale(url: string): any | null {
   ensureCacheDir();
-  const fs = require('fs');
-  const key = getCacheKeyFromUrl(url);
-  const filePath = `${getCacheDir()}/${key}.json`;
-  
+  const filePath = path.join(getCacheDir(), `${getCacheKeyFromUrl(url)}.json`);
+
   try {
     if (fs.existsSync(filePath)) {
       return JSON.parse(fs.readFileSync(filePath, 'utf8'));
@@ -68,11 +65,11 @@ export function getCacheStale(url: string): any | null {
 
 export function setCache(url: string, data: any): void {
   ensureCacheDir();
-  const fs = require('fs');
-  const key = getCacheKeyFromUrl(url);
-  const filePath = `${getCacheDir()}/${key}.json`;
-  
+  const filePath = path.join(getCacheDir(), `${getCacheKeyFromUrl(url)}.json`);
+
   try {
-    fs.writeFileSync(`${getCacheDir()}/${key}.json`, JSON.stringify(data));
-  } catch (_) {}
+    fs.writeFileSync(filePath, JSON.stringify(data));
+  } catch (_) {
+    // ignore write errors (e.g. read-only fs)
+  }
 }
