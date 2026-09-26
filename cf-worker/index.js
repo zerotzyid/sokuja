@@ -211,7 +211,6 @@ function parseEpisode(html) {
 
   // ============ STREAM EXTRACTION (ERASDOCU approach) ============
   // 1. Try to get episodeId and call Sokuja's internal API
-  let streams = [];
   const epIdMatch = html.match(/episodeId[^\d]{1,10}(\d+)/i);
   const episodeId = epIdMatch ? parseInt(epIdMatch[1], 10) : null;
 
