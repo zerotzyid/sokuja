@@ -333,7 +333,7 @@ function extractPagination(html) {
   return { currentPage: current, hasPrevPage: current > 1, prevPage: current > 1 ? current - 1 : null, hasNextPage: current < lastPage, nextPage: current < lastPage ? current + 1 : null, totalPages: lastPage };
 }
 
-async function handleScrape(req, path, params) {
+async function handleScrape(req, env, path, params) {
   if (!authCheck(req)) return error('Unauthorized', 401);
 
   let url, ttl, parser;
@@ -435,11 +435,11 @@ export default {
     const url = new URL(req.url);
     const path = url.pathname.slice(1);
 
-    if (path.startsWith('scrape/')) {
+if (path.startsWith('scrape/')) {
       const parts = path.split('/');
       const endpoint = parts[1];
       const params = { page: url.searchParams.get('page'), slug: parts[2], kw: parts[2] };
-      return handleScrape(req, endpoint, params);
+      return handleScrape(req, env, endpoint, params);
     }
 
     if (path.startsWith('proxy/stream/')) {
