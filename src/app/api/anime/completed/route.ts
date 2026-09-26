@@ -1,3 +1,5 @@
+export const runtime = 'nodejs';
+
 import { getCompletedHtml } from '@/lib/sokuja/client';
 import { parseAnimeDetail } from '@/lib/sokuja/parser';
 

@@ -1,3 +1,5 @@
+export const runtime = 'nodejs';
+
 import { getSearchHtml } from '@/lib/sokuja/client';
 import { parseAnimeFilter } from '@/lib/sokuja/parser';
 

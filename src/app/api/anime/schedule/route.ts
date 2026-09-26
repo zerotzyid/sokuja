@@ -1,3 +1,5 @@
+export const runtime = 'nodejs';
+
 import { getScheduleHtml } from '@/lib/sokuja/client';
 import { parseSchedule } from '@/lib/sokuja/parser';
 

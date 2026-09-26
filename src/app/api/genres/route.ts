@@ -1,3 +1,5 @@
+export const runtime = 'nodejs';
+
 import { getGenreHtml } from '@/lib/sokuja/client';
 import { parseGenres } from '@/lib/sokuja/parser';
 

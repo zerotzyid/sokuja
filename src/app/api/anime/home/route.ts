@@ -1,3 +1,5 @@
+export const runtime = 'nodejs';
+
 import { getHomeHtml } from '@/lib/sokuja/client';
 import { parseHome } from '@/lib/sokuja/parser';
 import { getCache, setCache } from '@/lib/sokuja/cache';

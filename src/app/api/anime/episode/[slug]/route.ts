@@ -1,3 +1,5 @@
+export const runtime = 'nodejs';
+
 import { getEpisodeHtml, getVideoMirrors } from '@/lib/sokuja/client';
 import { parseEpisodeDetail } from '@/lib/sokuja/parser';
 

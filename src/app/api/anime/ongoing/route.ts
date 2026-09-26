@@ -1,3 +1,5 @@
+export const runtime = 'nodejs';
+
 import { getOngoingHtml } from '@/lib/sokuja/client';
 import { parseAnimeDetail } from '@/lib/sokuja/parser';
 import { getCache, setCache } from '@/lib/sokuja/cache';

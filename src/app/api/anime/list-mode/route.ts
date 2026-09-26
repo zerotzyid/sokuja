@@ -1,3 +1,5 @@
+export const runtime = 'nodejs';
+
 import { getGenreHtml } from '@/lib/sokuja/client';
 import { parseAnimeListMode } from '@/lib/sokuja/parser';
 
