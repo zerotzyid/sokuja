@@ -160,18 +160,44 @@ function parseDetail(html) {
 
   // Fallback: scrape episode list from HTML (EpisodeList component)
   if (episodes.length === 0) {
-    // Pattern 1: Next.js data format in __next_f.push
-    const epRegex = /"id":(\d+),"slug":"([^"]+)","title":"([^"]+)","episodeNumber":(\d+)/g;
+    // Pattern 1: Next.js data format in __next_f.push - exact format from detail page
+    const epRegex = /"episodes":\s*(\[[\s\S]*?\])/g;
     let match;
     while ((match = epRegex.exec(html)) !== null) {
-      episodes.push({
-        title: match[3] || `Episode ${match[4]}`,
-        episodeId: match[2],
-        href: `/anime/episode/${match[2]}`,
-        sourceUrl: new URL(match[2], SOKUJA_BASE).href
-      });
+      try {
+        const eps = JSON.parse(match[1]);
+        if (Array.isArray(eps)) {
+          eps.forEach(ep => {
+            if (ep.slug && ep.title) {
+              episodes.push({
+                title: ep.title,
+                episodeId: ep.slug,
+                href: `/anime/episode/${ep.slug}`,
+                sourceUrl: new URL(ep.slug, SOKUJA_BASE).href
+              });
+            }
+          });
+        }
+      } catch (e) {}
     }
-    // Pattern 2: simpler format in HTML links
+
+    // Pattern 2: Individual episode objects in Next.js data
+    if (episodes.length === 0) {
+      const epRegex2 = /"id":(\d+),"slug":"([^"]+)","title":"([^"]+)","episodeNumber":(\d+)/g;
+      let match2;
+      while ((match2 = epRegex2.exec(html)) !== null) {
+        if (!episodes.some(e => e.episodeId === match2[2])) {
+          episodes.push({
+            title: match2[3] || `Episode ${match2[4]}`,
+            episodeId: match2[2],
+            href: `/anime/episode/${match2[2]}`,
+            sourceUrl: new URL(match2[2], SOKUJA_BASE).href
+          });
+        }
+      }
+    }
+
+    // Pattern 3: HTML links
     if (episodes.length === 0) {
       const linkRegex = /href="(\/anime\/[^"]*-episode-\d+[^"]*)"[^>]*>([^<]+)</g;
       let linkMatch;
@@ -187,6 +213,7 @@ function parseDetail(html) {
         }
       }
     }
+
     // Sort by episode number
     episodes.sort((a, b) => {
       const an = parseInt(a.episodeId.match(/episode-(\d+)/)?.[1] || '0');
