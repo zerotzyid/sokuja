@@ -1,6 +1,7 @@
 const SOKUJA_BASE = 'https://x6.sokuja.uk';
 const VALID_API_KEY = 'e1d31716fcc84a54bb39da93c0bb4db911a9126459af4dd3922895e888f5ec78';
 const CACHE_TTL = { list: 300, detail: 1800, episode: 600, schedule: 3600 };
+const WORKER_VERSION = '2024-09-26-v2';
 
 const BROWSER_HEADERS = {
   'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36',
@@ -208,25 +209,74 @@ function parseEpisode(html) {
     downloads.push({ quality, url: dlMatch[1], direct: false, mirror: 'sokuja' });
   }
 
-  // Video qualities from qualityOptions in LazyVideoPlayer
-  const qualityRegex = /"qualityOptions"\s*:\s*\[([^\]]+)\]/;
-  const qMatch = html.match(qualityRegex);
-  let qualities = ['480p', '720p', '1080p'];
-  if (qMatch) {
-    qualities = qMatch[1].split(',').map(q => q.replace(/["\s]/g, '')).filter(Boolean);
+  // ============ STREAM EXTRACTION (ERASDOCU approach) ============
+  // 1. Try to get episodeId and call Sokuja's internal API
+  let streams = [];
+  const epIdMatch = html.match(/episodeId[^\d]{1,10}(\d+)/i);
+  const episodeId = epIdMatch ? parseInt(epIdMatch[1], 10) : null;
+
+  if (episodeId) {
+    // This will be handled by a separate async function - we'll add mirror data here
+    // For now, add a marker that episodeId exists
+    streams.push({ 
+      episodeId: episodeId,
+      server: 'api',
+      source: 'api',
+      needsProxy: true
+    });
   }
 
-  // Stream URLs point to Vercel proxy with episode page as target
-  // The proxy will fetch the episode page, extract real MP4 URL, and serve video
-  const episodeUrl = (html.match(/property="og:url" content="([^"]+)"/) || [])[1] || '';
-  for (const q of qualities) {
-    streams.push({ 
-      quality: q, 
-      url: `https://rino-eosin.vercel.app/api/proxy/stream/${encodeURIComponent(episodeUrl)}`,
-      direct: true,
-      server: 'storages',
-      quality_param: q
+  // 2. Fallback: scrape stream URLs from HTML (regex patterns from ERASDOCU)
+  const patterns = [
+    /"url"\s*:\s*"([^"]+\.(m3u8|mp4)[^"]*)"/gi,
+    /"file"\s*:\s*"([^"]+\.(m3u8|mp4)[^"]*)"/gi,
+    /"src"\s*:\s*"([^"]+\.(m3u8|mp4)[^"]*)"/gi,
+    /source\s*:\s*["']([^"']+\.(m3u8|mp4)[^"']*)["']/gi,
+    /video\s*:\s*["']([^"']+\.(m3u8|mp4)[^"']*)["']/gi,
+    /https?:\/\/[^\s"']+\.(m3u8|mp4)/gi
+  ];
+
+  const scrapedStreams = [];
+  const scriptRegex = /<script[^>]*>([\s\S]*?)<\/script>/gi;
+  let scriptMatch;
+  while ((scriptMatch = scriptRegex.exec(html)) !== null) {
+    const content = scriptMatch[1];
+    patterns.forEach(pattern => {
+      let match;
+      while ((match = pattern.exec(content)) !== null) {
+        const url = match[1] || match[0];
+        if (url && url.startsWith('http') && !url.includes('google') && !url.includes('doubleclick')) {
+          const qMatch = url.match(/-(\d{3,4}p)-/i);
+          const quality = qMatch ? qMatch[1].toUpperCase() : 
+                         url.includes('1080') ? '1080p' : 
+                         url.includes('720') ? '720p' : 
+                         url.includes('480') ? '480p' : 'auto';
+          scrapedStreams.push({
+            url,
+            quality,
+            type: url.includes('.m3u8') ? 'hls' : 'mp4',
+            server: 'Scraped',
+            source: 'html'
+          });
+        }
+      }
     });
+  }
+
+  // 3. Add scraped streams
+  streams.push(...scrapedStreams);
+
+  // 4. If no streams found, add a marker for proxy fallback
+  if (streams.length === 0 || (streams.length === 1 && streams[0].source === 'api')) {
+    const episodeUrl = (html.match(/property="og:url" content="([^"]+)"/) || [])[1] || '';
+    if (episodeUrl) {
+      streams.push({
+        episodeUrl,
+        server: 'proxy',
+        source: 'proxy',
+        needsProxy: true
+      });
+    }
   }
 
   const uniq = (arr) => Array.from(new Map(arr.map(x => [x.quality + x.url, x])).values());
@@ -375,6 +425,31 @@ export default {
     if (path.startsWith('proxy/stream/')) {
       const target = decodeURIComponent(path.replace('proxy/stream/', ''));
       return handleProxy(req, target);
+    }
+
+    if (path.startsWith('stream/')) {
+      if (!authCheck(req)) return error('Unauthorized', 401);
+      const parts = path.split('/');
+      const episodeId = parts[1];
+      if (!episodeId) return error('episodeId required', 400);
+      
+      try {
+        const apiUrl = `${SOKUJA_BASE}/api/video-mirrors?e=${episodeId}`;
+        const res = await fetch(apiUrl, {
+          headers: {
+            ...BROWSER_HEADERS,
+            'Referer': SOKUJA_BASE + '/',
+            'X-Requested-With': 'XMLHttpRequest',
+            'Accept': 'application/json'
+          }
+        });
+        if (!res.ok) return error(`Upstream error: ${res.status}`, res.status);
+        const data = await res.json();
+        return json(buildResponse({ episodeId, mirrors: data.mirrors || [], source: 'api' }));
+      } catch (e) {
+        console.error('Stream API error:', e);
+        return error(e.message, 500);
+      }
     }
 
     if (path === 'health') {
