@@ -161,7 +161,7 @@ function parseDetail(html) {
   return { title, poster: poster.startsWith('http') ? poster : (poster ? new URL(poster, SOKUJA_BASE).href : ''), synopsis, genres, episodes };
 }
 
-function parseEpisode(html) {
+async function parseEpisode(html, env) {
   const jsonLd = extractJsonLd(html);
   const nextData = extractNextData(html);
   
@@ -215,14 +215,35 @@ function parseEpisode(html) {
   const episodeId = epIdMatch ? parseInt(epIdMatch[1], 10) : null;
 
   if (episodeId) {
-    // This will be handled by a separate async function - we'll add mirror data here
-    // For now, add a marker that episodeId exists
-    streams.push({ 
-      episodeId: episodeId,
-      server: 'api',
-      source: 'api',
-      needsProxy: true
-    });
+    try {
+      const apiUrl = `${SOKUJA_BASE}/api/video-mirrors?e=${episodeId}`;
+      const res = await fetch(apiUrl, {
+        headers: {
+          ...BROWSER_HEADERS,
+          'Referer': SOKUJA_BASE + '/',
+          'X-Requested-With': 'XMLHttpRequest',
+          'Accept': 'application/json'
+        }
+      });
+      if (res.ok) {
+        const data = await res.json();
+        if (data.mirrors && Array.isArray(data.mirrors)) {
+          data.mirrors.forEach(m => {
+            streams.push({
+              id: m.id,
+              server: m.serverName || 'SOKUJA',
+              quality: m.quality || 'auto',
+              type: m.embedType || 'hls',
+              url: m.embedUrl,
+              source: 'api',
+              direct: true
+            });
+          });
+        }
+      }
+    } catch (e) {
+      console.error('Stream API error:', e);
+    }
   }
 
   // 2. Fallback: scrape stream URLs from HTML (regex patterns from ERASDOCU)
@@ -266,7 +287,7 @@ function parseEpisode(html) {
   streams.push(...scrapedStreams);
 
   // 4. If no streams found, add a marker for proxy fallback
-  if (streams.length === 0 || (streams.length === 1 && streams[0].source === 'api')) {
+  if (streams.length === 0) {
     const episodeUrl = (html.match(/property="og:url" content="([^"]+)"/) || [])[1] || '';
     if (episodeUrl) {
       streams.push({
@@ -339,7 +360,7 @@ async function handleScrape(req, path, params) {
 
   try {
     const { html } = await fetchWithCache(url, ttl);
-    const data = parser(html);
+    const data = await parser(html, env);
     if (path === 'schedule') return json(buildResponse(data));
     const pagination = ['home','ongoing','completed','genre','search'].includes(path) ? extractPagination(html) : null;
     return json(buildResponse(data, pagination));
