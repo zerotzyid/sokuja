@@ -160,15 +160,32 @@ function parseDetail(html) {
 
   // Fallback: scrape episode list from HTML (EpisodeList component)
   if (episodes.length === 0) {
-    const epRegex = /"slug":"([^"]+-episode-\d+[^"]*)","title":"([^"]+)","episodeNumber":(\d+)/g;
+    // Pattern 1: Next.js data format in __next_f.push
+    const epRegex = /"id":(\d+),"slug":"([^"]+)","title":"([^"]+)","episodeNumber":(\d+)/g;
     let match;
     while ((match = epRegex.exec(html)) !== null) {
       episodes.push({
-        title: match[2] || `Episode ${match[3]}`,
-        episodeId: match[1],
-        href: `/anime/episode/${match[1]}`,
-        sourceUrl: new URL(match[1], SOKUJA_BASE).href
+        title: match[3] || `Episode ${match[4]}`,
+        episodeId: match[2],
+        href: `/anime/episode/${match[2]}`,
+        sourceUrl: new URL(match[2], SOKUJA_BASE).href
       });
+    }
+    // Pattern 2: simpler format in HTML links
+    if (episodes.length === 0) {
+      const linkRegex = /href="(\/anime\/[^"]*-episode-\d+[^"]*)"[^>]*>([^<]+)</g;
+      let linkMatch;
+      while ((linkMatch = linkRegex.exec(html)) !== null) {
+        const slug = linkMatch[1].replace(/^\/anime\/|\/$/g, '');
+        if (!episodes.some(e => e.episodeId === slug)) {
+          episodes.push({
+            title: linkMatch[2].trim(),
+            episodeId: slug,
+            href: `/anime/episode/${slug}`,
+            sourceUrl: new URL(linkMatch[1], SOKUJA_BASE).href
+          });
+        }
+      }
     }
     // Sort by episode number
     episodes.sort((a, b) => {
